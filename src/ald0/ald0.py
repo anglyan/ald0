@@ -18,6 +18,7 @@ All units are in SI unless specifically mentioned:
 """
 
 import numpy as np
+from scipy.integrate import solve_ivp
 
 kb = 1.38e-23
 amu = 1.660e-27
@@ -25,7 +26,6 @@ amu = 1.660e-27
 
 def vth(M, T):
     return np.sqrt(8*kb*T/(np.pi*amu*M))
-
 
 
 class ALD0:
@@ -58,98 +58,142 @@ class ALD0:
             for that particular half-cycle (ng/cm2).
         """
 
-        p1, M1, beta1, tp1, dm1 = chem1
-        p2, M2, beta2, tp2, dm2 = chem2
+        self.chem1 = chem1
+        self.chem2 = chem2
 
-        v1 = vth(M1, T)
-        v2 = vth(M2, T)
+        v1 = vth(chem1.M, T)
+        v2 = vth(chem2.M, T)
 
-        self.a01 = sitearea*beta1*0.25*v1*p1/(kb*T)
-        self.a02 = sitearea*beta2*0.25*v2*p2/(kb*T)
+        self.a01 = sitearea*chem1.beta0*0.25*v1*chem1.p0/(kb*T)
+        self.a02 = sitearea*chem2.beta0*0.25*v2*chem2.p0/(kb*T)
 
-        dt = min(1e-4, 10**(-int(np.log10(max(self.a01, self.a02))+1)))
+        self.tp1 = chem1.tp
+        self.tp2 = chem2.tp
+        self.dm1 = chem1.dm
+        self.dm2 = chem2.dm
 
-        self.tp1 = tp1
-        self.tp2 = tp2
-        self.dm1 = dm1
-        self.dm2 = dm2
-
-        self.a1 = 0
-        self.a2 = 0
         self.c1 = 0
-
-        self.noise = noise
-
-        self.dt = dt
-        self.dp1 = np.exp(-self.dt/self.tp1)
-        self.dp2 = np.exp(-self.dt/self.tp2)
+        self.x2 = 0
         self.glist = []
 
-    def next_step(self, c1, a1, a2, dt):
-        return (c1+a1*dt)/(1 + (a1+a2)*dt)
+    def run(self, t1, t2, t3, t4, c1=0, x2=0, dt=0.001):
+        """Run a single ALD cycle"""
+
+        x1 = t1/(t1+self.tp1)
+        t_d1, cov_d1, gr_d1, f_d1, x1, x2 = self.solve_dose1(t1, x1, x2, c1)
+        t_p1, cov_p1, gr_p1, f_p1, x1, x2 = self.solve_purge(t2, x1, x2, cov_d1[-1])
+        x2 = t3/(t3+self.tp2)
+        t_d2, cov_d2, gr_d2, f_d2, x1, x2 = self.solve_dose2(t3, x1, x2, cov_p1[-1])
+        t_p2, cov_p2, gr_p2, f_p2, x1, x2 = self.solve_purge(t4, x1, x2, cov_d2[-1])
+        self.x1 = x1
+        self.x2 = x2
+        self.c1 = cov_p2[-1]
+        t = np.concatenate([t_d1, t1+t_p1[1:], t1+t2+t_d2[1:], 
+                            t1+t2+t3+t_p2[1:]])
+        gr = np.concatenate([gr_d1, gr_d1[-1]+gr_p1[1:],
+                             gr_d1[-1]+gr_p1[-1]+gr_d2[1:], 
+                            gr_d1[-1]+gr_p1[-1]+gr_d2[-1]+gr_p2[1:]])
+        f2 = np.concatenate([f_d1, f_d1[-1]+f_p1[1:],
+                             f_d1[-1]+f_p1[-1]+f_d2[1:], 
+                            f_d1[-1]+f_p1[-1]+f_d2[-1]+f_p2[1:]])
+        cov = np.concatenate([cov_d1, cov_p1[1:], cov_d2[1:], 
+                            cov_p2[1:]])
+        return t, gr, self.dm1*gr + self.dm2*f2, cov
+
+
+    def _pick_teval(self, t, dt):
+        t_eval = np.arange(0, t+dt, dt)
+        if t_eval[1] > t:
+            t_eval *= t/t_eval[-1]
+        return t_eval
+
+    def solve_dose1(self, t1, x1=1, x2=0, c1=0, dt=0.001): 
+        self.x1 = x1
+        self.x2 = x2
+        if t1 > 0:
+            t_eval = self._pick_teval(t1, dt)
+            if t_eval[-1] > t1:
+                t_eval *= t1/t_eval[-1]
+            sol = solve_ivp(self._dose1_f, [0,t1], [c1,0,0], method='BDF',
+                t_eval=t_eval, jac=self._dose1_jac)
+            return sol.t, sol.y[0], sol.y[1], sol.y[2],\
+                self.x1, self.x2*np.exp(-t1/self.tp2)
+        else:
+            return np.array([0]), np.array([c1]), np.array([0]), np.array([0]), \
+                self.x1, self.x2
+    
+    def _dose1_f(self, t, cov):
+        gain = self.a01*self.x1*(1-cov[0])
+        loss = self.a02*cov[0]*self.x2*np.exp(-t/self.tp2)
+        return np.array([gain-loss, gain, loss])
+    
+    def _dose1_jac(self, t, cov):
+        gj = -self.a01*self.x1
+        lj = self.a02*self.x2*np.exp(-t/self.tp2)
+        return np.array([
+            [gj - lj,0,0],
+            [gj,0,0],
+            [lj,0,0]])
+
+    def solve_dose2(self, t2, x1=0, x2=0, c1=1, dt=0.001):
+        self.x1 = x1
+        self.x2 = x2
+        if t2 > 0:
+            t_eval = self._pick_teval(t2, dt)
+            sol = solve_ivp(self._dose2_f, [0,t2], [c1,0,0], method='BDF',
+                t_eval=t_eval, jac=self._dose2_jac)
+            return sol.t, sol.y[0], sol.y[1], sol.y[2], x1*np.exp(-t2/self.tp1), x2    
+        else:
+            return np.array([0]), np.array([c1]), np.array([0]), np.array([0]), \
+                self.x1, self.x2
+
+    def _dose2_f(self, t, cov):
+        gain = self.a01*self.x1*(1-cov[0])*np.exp(-t/self.tp1)
+        loss = self.a02*cov[0]
+        return np.array([gain-loss, gain, loss])
+
+    def _dose2_jac(self, t, cov):
+        gain_jac = -self.a01*self.x1*np.exp(-t/self.tp1)
+        loss_jac = self.a02
+        return np.array([
+            [gain_jac-loss_jac,0, 0],
+            [gain_jac, 0,0],
+            [loss_jac, 0, 0]])
+
+    def solve_purge(self, tp, x1=0, x2=0, c1=1, dt=0.001):
+        self.x1 = x1
+        self.x2 = x2
+        if tp > 0:
+            t_eval = self._pick_teval(tp, dt)
+            sol = solve_ivp(self._purge_f, [0,tp], [c1,0,0], method='BDF',
+                t_eval=t_eval, jac=self._purge_jac)
+            return sol.t, sol.y[0], sol.y[1], sol.y[2], x1*np.exp(-tp/self.tp1), \
+                x2*np.exp(-tp/self.tp2)
+        else:
+            return np.array([0]), np.array([c1]), np.array([0]), np.array([0]), \
+                self.x1, self.x2
+
+            
+    def _purge_f(self, t, cov):
+        gain = self.a01*self.x1*(1-cov[0])*np.exp(-t/self.tp1)
+        loss = self.a02*cov[0]*self.x2*np.exp(-t/self.tp2)
+        return np.array([gain-loss, gain, loss])
+
+    def _purge_jac(self, t, cov):
+        gain_jac = -self.a01*self.x1*np.exp(-t/self.tp1)
+        loss_jac = self.a02*self.x2*np.exp(-t/self.tp2)
+        return np.array([
+            [gain_jac-loss_jac,0,0],
+            [gain_jac, 0,0],
+            [loss_jac, 0, 0]])
+
 
     def cycle(self, t1, t2, t3, t4, N=10):
 
-        a1corr = self.a01*t1/(t1+self.tp1)
-        a2corr = self.a02*t3/(t3+self.tp2)
-
-        nd1 = int(t1/self.dt)
-        nd2 = int(t3/self.dt)
-        np1 = int(t2/self.dt)
-        np2 = int(t4/self.dt)
-        nc = nd1 + np1 + nd2 + np2
-        gold = 0
-
-        a1 = self.a1
-        a2 = self.a2
-        c1 = self.c1
-
         growthrates = []
-
-        for nc in range(N):
-            a1 = a1corr
-            J1 = 0
-            J2 = 0
-            for i in range(nd1):
-                a2 = self.dp2*a2
-                c1 = self.next_step(c1, a1, a2, self.dt)
-                J1 += a1*(1-c1)
-                J2 += a2*c1
-
-            for i in range(np1):
-                a2 = self.dp2*a2
-                a1 = self.dp1*a1
-                c1 = self.next_step(c1, a1, a2, self.dt)
-                J1 += a1*(1-c1)
-                J2 += a2*c1
-
-            a2 = a2corr
-            for i in range(nd2):
-                a1 = self.dp1*a1
-                c1 = self.next_step(c1, a1, a2, self.dt)
-                J1 += a1*(1-c1)
-                J2 += a2*c1
-
-            for i in range(np2):
-                a2 = self.dp2*a2
-                a1 = self.dp1*a1
-                c1 = self.next_step(c1, a1, a2, self.dt)
-                J1 += a1*(1-c1)
-                J2 += a2*c1
-
-            gr = self.dt*(self.dm1*J1+self.dm2*J2)
-            growthrates.append(gr+self.noise*np.random.normal())
-        self.c1 = c1
+        for i in range(N):
+            _, gr, _, _ = self.run(t1, t2, t3, t4, c1=self.c1, x2=self.x2)
+            growthrates.append(gr[-1])
         self.glist.extend(growthrates)
-
         return growthrates
 
-
-if __name__ == '__main__':
-
-    chem1 = (10, 100, 1e-2, 0.1, 40)
-    chem2 = (100, 18, 1e-2, 0.1, -10)
-
-    ald = ALD0(473, 10e-20, chem1, chem2)
-    gr = ald.cycle(1,5,1,5,10)
-    print(gr)

@@ -6,7 +6,7 @@ ald = aldprocess('TMA200', noise=0)
 
 #An ALD process comprises four times tdose1, tpurge1, tdose2, tpurge2
 
-td1 = np.arange(0, 0.1, 0.001)
+td1 = np.arange(0, 0.1, 0.002)
 gr_l = []
 
 for t in td1:
