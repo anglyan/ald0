@@ -102,15 +102,16 @@ class ALD0:
 
 
     def _pick_teval(self, t, dt):
-        t_eval = np.arange(0, t+dt, dt)
-        if t_eval[1] > t:
-            t_eval *= t/t_eval[-1]
+        t_eval = np.arange(0, t, dt)
+        t_eval = np.concatenate([t_eval, [t]])
         return t_eval
 
     def solve_dose1(self, t1, x1=1, x2=0, c1=0, dt=0.001): 
         self.x1 = x1
         self.x2 = x2
         if t1 > 0:
+            while t1 < dt:
+                dt /= 10
             t_eval = self._pick_teval(t1, dt)
             if t_eval[-1] > t1:
                 t_eval *= t1/t_eval[-1]
@@ -139,6 +140,8 @@ class ALD0:
         self.x1 = x1
         self.x2 = x2
         if t2 > 0:
+            while t2 < dt:
+                dt /= 10
             t_eval = self._pick_teval(t2, dt)
             sol = solve_ivp(self._dose2_f, [0,t2], [c1,0,0], method='BDF',
                 t_eval=t_eval, jac=self._dose2_jac)
@@ -164,6 +167,8 @@ class ALD0:
         self.x1 = x1
         self.x2 = x2
         if tp > 0:
+            while tp <= dt:
+                dt /= 10
             t_eval = self._pick_teval(tp, dt)
             sol = solve_ivp(self._purge_f, [0,tp], [c1,0,0], method='BDF',
                 t_eval=t_eval, jac=self._purge_jac)
@@ -188,9 +193,12 @@ class ALD0:
             [loss_jac, 0, 0]])
 
 
-    def cycle(self, t1, t2, t3, t4, N=10):
+    def cycle(self, t1, t2, t3, t4, N=10, new_growth=True):
 
         growthrates = []
+        if new_growth:
+            self.c1 = 0
+            self.x2 = 0
         for i in range(N):
             _, gr, _, _ = self.run(t1, t2, t3, t4, c1=self.c1, x2=self.x2)
             growthrates.append(gr[-1])
