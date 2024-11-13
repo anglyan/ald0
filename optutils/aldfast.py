@@ -51,7 +51,12 @@ if __name__ == '__main__':
 
     ald = ALDdose()
     cf = CostF(ald)
-    t_min, C_min = optimize(cf)
+    t_min, C_min, local_mins = optimize(cf)
+    
+    print("Local minimum values for each iteration:")
+    for t, C in local_mins:
+        print(f"t: {t}, C: {C}")
+
 
     # Plotting final results
     t_values = np.linspace(1, 10, 100)
