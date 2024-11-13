@@ -1,4 +1,8 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from skopt.plots import plot_convergence
+from optimize import optimize
+from skopt import gp_minimize
 
 class ALDdose:
 
@@ -46,14 +50,25 @@ class CostF:
 if __name__ == '__main__':
 
     ald = ALDdose()
-    CF = CostF(ald)
+    cf = CostF(ald)
+    t_min, C_min = optimize(cf)
 
-    import matplotlib.pyplot as pt
+    # Plotting final results
+    t_values = np.linspace(1, 10, 100)
+    C_values = [cf(t) for t in t_values]
+    plt.plot(t_values, C_values, label="Cost Function")
+    plt.axvline(t_min, color='r', linestyle='--', label=f"Optimal t={t_min:.2f}")
+    plt.xlabel("Time (t)")
+    plt.ylabel("Cost")
+    plt.title("Cost Function Optimization")
+    plt.legend()
+    plt.savefig("optimized_cost_function.png", dpi=300)
+    plt.clf()
+    
+    plot_convergence(gp_minimize(lambda x: cf(x[0]), [(0.1, 10)], n_calls=15))
+    plt.savefig("convergence.png", dpi=300)
 
-    t = np.arange(1,8,0.01)
-    y = [CF(ti) for ti in t]
-    pt.plot(t, y)
-    pt.show()
+    print(f"Optimal t: {t_min}, Minimum Cost: {C_min}")
 
 
 

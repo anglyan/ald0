@@ -5,18 +5,17 @@ import os
 
 savepath = "/home/yyardi/projects/ald0/"
 
-compound = "TMA200"
+compound = "TMA100"
 # We define an ALD process based on chemistry
 ald = aldprocess(compound, noise=0)
 
 #An ALD process comprises four times tdose1, tpurge1, tdose2, tpurge2
 
 td1 = np.arange(0, 0.1, 0.002)
-tp1 = np.arange(0, 0.5, 0.002)
+tp1 = np.arange(0, 16, 0.3)
 gr_l = []
 
 def dose1():
-    
     
     for t in td1:
         # The method cycle in ALD0 computes the total thickness per cycle for
@@ -27,7 +26,7 @@ def dose1():
     pt.xlabel('Time') 
     pt.ylabel('Thickness') # angstrom
     pt.plot(td1, gr_l)
-    pt.savefig(savepath + compound +'Dose 1.png')
+    pt.savefig(savepath + compound +'Dose1.png')
 
 def dose2():
     for t in td1:
@@ -39,7 +38,7 @@ def dose2():
     pt.xlabel('Time')
     pt.ylabel('Thickness')
     pt.plot(td1, gr_l)
-    pt.savefig(savepath + compound +'Dose 2.png')
+    pt.savefig(savepath + compound +'Dose2.png')
 
 
 def purge1():
@@ -52,7 +51,7 @@ def purge1():
     pt.xlabel('Time')
     pt.ylabel('Thickness')
     pt.plot(tp1, gr_l)
-    pt.savefig(savepath + compound +'Purge 1.png')
+    pt.savefig(savepath + compound +'Purge1.png')
 
 def purge2():
     for t in tp1:
@@ -64,7 +63,7 @@ def purge2():
     pt.xlabel('Time')
     pt.ylabel('Thickness')
     pt.plot(tp1, gr_l)
-    pt.savefig(savepath + compound +'Purge 2.png')
+    pt.savefig(savepath + compound +'Purge2.png')
 
 purge2()
 
