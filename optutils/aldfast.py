@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from skopt.plots import plot_convergence
 from optimize import optimize
 from skopt import gp_minimize
+import os
 
 class ALDdose:
 
@@ -51,29 +52,36 @@ if __name__ == '__main__':
 
     ald = ALDdose()
     cf = CostF(ald)
-    t_min, C_min, local_mins = optimize(cf)
+    abs_min_t, abs_min_C, local_mins = optimize(cf)
     
-    print("Local minimum values for each iteration:")
-    for t, C in local_mins:
-        print(f"t: {t}, C: {C}")
+    path = "/home/yyardi/projects/ald0/optutils"
 
-
-    # Plotting final results
+    # Plotting cost function and abs min
     t_values = np.linspace(1, 10, 100)
     C_values = [cf(t) for t in t_values]
     plt.plot(t_values, C_values, label="Cost Function")
-    plt.axvline(t_min, color='r', linestyle='--', label=f"Optimal t={t_min:.2f}")
+    plt.axvline(abs_min_t, color='r', linestyle='--', label=f"Optimal t={abs_min_t.item():.2f}")
     plt.xlabel("Time (t)")
     plt.ylabel("Cost")
     plt.title("Cost Function Optimization")
     plt.legend()
-    plt.savefig("optimized_cost_function.png", dpi=300)
+    plt.savefig(os.path.join(path, "optimized_cost_function.png"), dpi=300)
+    plt.clf()
+
+
+    plot_convergence(gp_minimize(lambda x: cf(x[0]), [(0.1, 10)], n_calls=15))
+    plt.savefig(os.path.join(path, "convergence.png"), dpi=300)
     plt.clf()
     
-    plot_convergence(gp_minimize(lambda x: cf(x[0]), [(0.1, 10)], n_calls=15))
-    plt.savefig("convergence.png", dpi=300)
 
-    print(f"Optimal t: {t_min}, Minimum Cost: {C_min}")
+    # plot local mins
+    plt.scatter(*zip(*local_mins), color='red', label="Minimums Plotted", zorder=5)
+    plt.xlabel("t-values (iter)")
+    plt.ylabel("C-values")
+    plt.title("Minimums Plotted")
+    plt.savefig(os.path.join(path, "minimums_plotted.png"))
+
+    print(f"Optimal t: {abs_min_t}, Minimum Cost: {abs_min_C}")
 
 
 
