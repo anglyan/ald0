@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skopt.plots import plot_convergence
 from optimize import optimize
-from skopt import gp_minimize
 import os
 
 class ALDdose:
@@ -51,10 +50,10 @@ class CostF:
 if __name__ == '__main__':
 
     ald = ALDdose()
-    cf = CostF(ald)
+    cf = CostF(ald) # normalize CostF by picking the five points, running the cf and getting, create lambda func to scale the function outputs
     abs_min_t, abs_min_C, local_mins = optimize(cf)
     
-    path = "/home/yyardi/projects/ald0/optutils"
+    path = "/home/yyardi/projects/ald0/optutils/images"
 
     # Plotting cost function and abs min
     t_values = np.linspace(1, 10, 100)
@@ -67,12 +66,6 @@ if __name__ == '__main__':
     plt.legend()
     plt.savefig(os.path.join(path, "optimized_cost_function.png"), dpi=300)
     plt.clf()
-
-
-    plot_convergence(gp_minimize(lambda x: cf(x[0]), [(0.1, 10)], n_calls=15))
-    plt.savefig(os.path.join(path, "convergence.png"), dpi=300)
-    plt.clf()
-    
 
     # plot local mins
     plt.scatter(*zip(*local_mins), color='red', label="Minimums Plotted", zorder=5)

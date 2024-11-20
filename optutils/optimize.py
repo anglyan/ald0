@@ -4,6 +4,8 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern
 from scipy.stats import norm
 from scipy.optimize import minimize
+import os
+path = "/home/yyardi/projects/ald0/optutils/images"
 
 def get_samples(start, end, step):
     """Generate an array of t values from start to end with a given step size."""
@@ -50,8 +52,6 @@ def propose_location(X_sample, Y_sample, gpr, bounds, n_restarts=25):
     Returns:
     - X_next: Proposed next point to sample (array-like, shape: (1,)).
     """
-    
-    
     dim = X_sample.shape[1]
     min_val = float("inf")
     X_next = None
@@ -89,6 +89,11 @@ def optimize(cf, t_range=(1, 10), n_samples=5, max_iter=15, tolerance=1e-4):
     """
     X_sample = np.random.uniform(t_range[0], t_range[1], size=(n_samples, 1))
     Y_sample = np.array([cf(t) for t in X_sample])
+    x_additional = np.array([0.9, 11])
+    y_additional = np.array([cf(t) for t in x_additional])
+    X_sample = np.vstack((X_sample, x_additional.reshape(-1, 1))) # needs to be a 2D vector
+    Y_sample = np.append(Y_sample, y_additional)
+
 
     kernel = Matern(nu=2.5)
     gpr = GaussianProcessRegressor(kernel=kernel, alpha=1e-6)
@@ -96,6 +101,10 @@ def optimize(cf, t_range=(1, 10), n_samples=5, max_iter=15, tolerance=1e-4):
     local_mins = []
     for iteration in range(max_iter):
         gpr.fit(X_sample, Y_sample)
+
+        # After first iteration, plot the current optimization progress with uncertainty
+        if iteration == 0:
+            plot_optimization_progress(cf, X_sample, Y_sample, t_range, gpr, iteration)
 
         X_next = propose_location(X_sample, Y_sample, gpr, t_range).reshape(1, -1)
 
@@ -114,3 +123,27 @@ def optimize(cf, t_range=(1, 10), n_samples=5, max_iter=15, tolerance=1e-4):
     C_min = np.min(Y_sample)
 
     return t_min, C_min, local_mins
+
+
+def plot_optimization_progress(cf, X_sample, Y_sample, t_range, gpr, iteration):
+    """
+    Plot the optimization progress with uncertainty (confidence intervals).
+    """
+    t_values = np.linspace(t_range[0], t_range[1], 100).reshape(-1, 1)
+    C_values = np.array([cf(t) for t in t_values])
+
+    # Predict the mean and standard deviation from the Gaussian Process
+    mu, sigma = gpr.predict(t_values, return_std=True)
+
+    # Plot the cost function, GP predictions, uncertainty, and sampled points
+    plt.plot(t_values, C_values, label="Original Cost Function", color='blue')
+    plt.plot(t_values, mu, label="GP Mean", color='green')
+    plt.fill_between(t_values.flatten(), mu - 1.96 * sigma, mu + 1.96 * sigma, color='gray', alpha=0.2, label="95% Confidence Interval")
+    plt.scatter(X_sample, Y_sample, color='red', label="Sampled Points")
+    plt.xlabel("Time (t)")
+    plt.ylabel("Cost")
+    plt.title(f"Optimization Progress after Iteration {iteration + 1}")
+    plt.legend()
+
+    plt.savefig(os.path.join(path, f"optimization_progress_iteration_{iteration + 1}.png"), dpi=300)
+    plt.clf()
