@@ -15,7 +15,7 @@ class ALDdose:
         else:
             self.single_path = False
             self.f2 = f2
-            self.t2 = self.t0r2
+            self.t2 = self.t0*r2
         
     
     def __call__(self, t):
