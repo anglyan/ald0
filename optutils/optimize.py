@@ -11,7 +11,7 @@ def get_samples(start, end, step):
     """Generate an array of t values from start to end with a given step size."""
     return np.arange(start, end, step)
 
-def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.01):
+def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.1):
     """
     Calculate the Expected Improvement (EI) acquisition function.
     
@@ -71,7 +71,7 @@ def propose_location(X_sample, Y_sample, gpr, bounds, n_restarts=25):
 
     return np.clip(X_next, bounds[0], bounds[1])
 
-def optimize(cf, t_range=(1, 10), n_samples=5, max_iter=15, tolerance=1e-4):
+def optimize(cf, t_range=(0.1, 20), n_samples=6, max_iter=2, tolerance=1e-5):
     """
     Manual Bayesian Optimization for minimizing a cost function.
 
@@ -87,12 +87,15 @@ def optimize(cf, t_range=(1, 10), n_samples=5, max_iter=15, tolerance=1e-4):
     - C_min: Minimum cost function value at t_min.
     - local_mins: List of tuples (t, C) of all local minima observed.
     """
-    X_sample = np.random.uniform(t_range[0], t_range[1], size=(n_samples, 1))
+    # X_sample = np.random.uniform(t_range[0], t_range[1], size=(n_samples, 1))
+    # X_sample = np.logspace(np.log10(t_range[0]), np.log10(t_range[1]), n_samples).reshape(-1, 1)
+    # Y_sample = np.array([cf(t) for t in X_sample])
+    X_sample = np.array([0.1,0.5,1,3,8,20]).reshape(-1, 1)
     Y_sample = np.array([cf(t) for t in X_sample])
-    x_additional = np.array([0.9, 11])
-    y_additional = np.array([cf(t) for t in x_additional])
-    X_sample = np.vstack((X_sample, x_additional.reshape(-1, 1))) # needs to be a 2D vector
-    Y_sample = np.append(Y_sample, y_additional)
+    # x_additional = np.array([0.1, 20])
+    # y_additional = np.array([cf(t) for t in x_additional])
+    # X_sample = np.vstack((X_sample, x_additional.reshape(-1, 1))) # needs to be a 2D vector
+    # Y_sample = np.append(Y_sample, y_additional)
 
 
     kernel = Matern(nu=2.5)
@@ -129,7 +132,7 @@ def plot_optimization_progress(cf, X_sample, Y_sample, t_range, gpr, iteration):
     """
     Plot the optimization progress with uncertainty (confidence intervals).
     """
-    t_values = np.linspace(t_range[0], t_range[1], 100).reshape(-1, 1)
+    t_values = np.linspace(1, 10, 100).reshape(-1, 1)
     C_values = np.array([cf(t) for t in t_values])
 
     # Predict the mean and standard deviation from the Gaussian Process
