@@ -110,7 +110,7 @@ if __name__ == '__main__':
     ald = ALDdose()
     cf = CostF(ald) # normalize CostF by picking the five points, running the cf and getting, create lambda func to scale the function outputs
     path = "/home/yyardi/projects/ald0/optutils/images"
-    # useoptimize(cf, path)
+    useoptimize(cf, path)
     
     
     mean_iterations, std_iterations, mean_min_t, std_min_t = repeated_optimization(cf)
