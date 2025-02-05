@@ -49,7 +49,7 @@ class CostF:
 
 def useoptimize(cf, path):
     
-    abs_min_t, abs_min_C, local_mins = optimize(cf)
+    abs_min_t, abs_min_C, local_mins, num_iter = optimize(cf)
     # steps is length of local_mins
     # samples used is length of local_mins * samples/step (5)
     
@@ -83,7 +83,7 @@ def repeated_optimization(cf, num_runs=20):
     min_t_values = []  # To track the optimal t values from each run
 
     for _ in range(num_runs):
-        abs_min_t, abs_min_C, local_mins = optimize(cf)
+        abs_min_t, abs_min_C, local_mins, num_iter = optimize(cf)
         
         # Collect the number of iterations (length of local_mins) for each run
         iterations_per_run.append(len(local_mins))
@@ -113,12 +113,12 @@ if __name__ == '__main__':
     useoptimize(cf, path)
     
     
-    mean_iterations, std_iterations, mean_min_t, std_min_t = repeated_optimization(cf)
+    # mean_iterations, std_iterations, mean_min_t, std_min_t = repeated_optimization(cf)
 
-    print(f"Mean number of iterations: {mean_iterations:.2f}")
-    print(f"Standard deviation of iterations: {std_iterations:.2f}")
-    print(f"Mean of optimal t-values: {mean_min_t:.2f}")
-    print(f"Standard deviation of optimal t-values: {std_min_t:.2f}")
+    # print(f"Mean number of iterations: {mean_iterations:.2f}")
+    # print(f"Standard deviation of iterations: {std_iterations:.2f}")
+    # print(f"Mean of optimal t-values: {mean_min_t:.2f}")
+    # print(f"Standard deviation of optimal t-values: {std_min_t:.2f}")
 
 
     

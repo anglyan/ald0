@@ -32,26 +32,28 @@ def evaluate_cf(kernel_name: str, kernel_params: dict, a=0.1, b=20):
         else:
             print(f"Optimization failed for condition {i}")
 
-    # metrics for accuracy
+    # Calculate error metrics
     errors = [abs(opt - real) / real * 100 for opt, real in zip(optimized_t_values, real_t_values)]
     avg_error = np.mean(errors)
     std_error = np.std(errors)
     avg_iterations = np.mean(num_iterations)
 
-    # save function
+    # Save the results
     save_results(optimized_t_values, real_t_values, avg_error, std_error, avg_iterations, kernel_name, kernel_params)
 
     return optimized_t_values, real_t_values, avg_error, std_error, avg_iterations
 
 
 def save_results(optimized_values, real_values, avg_error, std_error, avg_iterations, kernel_name, kernel_params):
+    # Create a directory for organized storage
     save_dir = "/home/yyardi/projects/ald0/optutils/results"
     os.makedirs(save_dir, exist_ok=True)
 
+    # Create a filename based on kernel name and hyperparameters
     param_str = "_".join(f"{k}={v}" for k, v in kernel_params.items())
     filename = f"{kernel_name}_{param_str}.pkl"
 
-    # save in pickle
+    # Save all key metrics in the pickle
     results = {
         "optimized_t_values": optimized_values,
         "real_t_values": real_values,

@@ -71,7 +71,7 @@ def propose_location(X_sample, Y_sample, gpr, bounds, n_restarts=25):
 
     return np.clip(X_next, bounds[0], bounds[1])
 
-def optimize(cf, t_range=(0.1, 20), n_samples=6, max_iter=2, tolerance=1e-5):
+def optimize(cf, t_range=(0.1, 20), n_samples=6, max_iter=2, tolerance=1e-6):
     """
     Manual Bayesian Optimization for minimizing a cost function.
 
@@ -100,11 +100,11 @@ def optimize(cf, t_range=(0.1, 20), n_samples=6, max_iter=2, tolerance=1e-5):
 
     kernel = Matern(nu=2.5)
     gpr = GaussianProcessRegressor(kernel=kernel, alpha=1e-6)
-
+    num_iteration_used = 0
     local_mins = []
     for iteration in range(max_iter):
         gpr.fit(X_sample, Y_sample)
-
+        num_iteration_used += 1 
         # After first iteration, plot the current optimization progress with uncertainty
         if iteration == 0:
             plot_optimization_progress(cf, X_sample, Y_sample, t_range, gpr, iteration)
@@ -125,7 +125,7 @@ def optimize(cf, t_range=(0.1, 20), n_samples=6, max_iter=2, tolerance=1e-5):
     t_min = X_sample[np.argmin(Y_sample)]
     C_min = np.min(Y_sample)
 
-    return t_min, C_min, local_mins
+    return t_min, C_min, local_mins, num_iteration_used
 
 
 def plot_optimization_progress(cf, X_sample, Y_sample, t_range, gpr, iteration):
